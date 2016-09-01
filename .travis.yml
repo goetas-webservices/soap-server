@@ -24,9 +24,6 @@ before_script:
 
 script:
   - vendor/phpunit/phpunit/phpunit $PHPUNIT_FLAGS
-  - mkdir example
-  - bin/xsd2php wsdl2php:convert:jms tests/Fixtures/Soap/test.wsdl --ns-map='http://www.example.org/test/;Test' --ns-dest='Test/;example' -vv
-  - bin/xsd2php wsdl2php:convert:php tests/Fixtures/Soap/test.wsdl --ns-map='http://www.example.org/test/;Test' --ns-dest='Test/;example' -vv
 
 after_script:
   - wget https://scrutinizer-ci.com/ocular.phar
