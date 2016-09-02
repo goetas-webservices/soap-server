@@ -83,21 +83,8 @@ class ServerFactory
 
         $services = $generator->generateServices($wsdl);
 
-        if ($serviceName && isset($services[$serviceName])) {
-            $service = $services[$serviceName];
-        } elseif ($serviceName) {
-            throw new ServiceNotFoundException("The service named $serviceName can not be found");
-        } else {
-            $service = reset($services);
-        }
-
-        if ($portName && isset($service[$portName])) {
-            $port = $service[$portName];
-        } elseif ($portName) {
-            throw new PortNotFoundException("The port named $portName can not be found");
-        } else {
-            $port = reset($service);
-        }
+        $service = $this->getService($serviceName, $services);
+        $port = $this->getPort($portName, $service);
 
         return $port;
     }
@@ -114,5 +101,42 @@ class ServerFactory
         $service = $this->getSoapService($wsdl, $portName, $serviceName);
 
         return new Server($service, $this->serializer, $this->messageFactory, $headerHandler);
+    }
+
+    /**
+     * @param $serviceName
+     * @param array $services
+     * @return array
+     * @throws ServiceNotFoundException
+     */
+    private function getService($serviceName, array $services)
+    {
+        if ($serviceName && isset($services[$serviceName])) {
+            $service = $services[$serviceName];
+            return $service;
+        } elseif ($serviceName) {
+            throw new ServiceNotFoundException("The service named $serviceName can not be found");
+        } else {
+            return reset($services);
+        }
+    }
+
+    /**
+     * @param string $portName
+     * @param $service
+     * @return mixed
+     * @throws PortNotFoundException
+     */
+    private function getPort($portName, array $service)
+    {
+        if ($portName && isset($service[$portName])) {
+            $port = $service[$portName];
+            return $port;
+        } elseif ($portName) {
+            throw new PortNotFoundException("The port named $portName can not be found");
+        } else {
+            $port = reset($service);
+            return $port;
+        }
     }
 }
