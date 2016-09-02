@@ -229,11 +229,11 @@ class Server
 
     /**
      * @param $handler
-     * @param $soapOperation
+     * @param array $soapOperation
      * @return array|callable
      * @throws ServerException
      */
-    private function getCallable($handler, $soapOperation)
+    private function getCallable($handler, array $soapOperation)
     {
         if (is_callable($handler)) {
             $function = $handler;
