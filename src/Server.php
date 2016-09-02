@@ -54,13 +54,7 @@ class Server
         try {
             $soapOperation = $this->findOperation($request, $this->serviceDefinition);
 
-            if (is_callable($handler)) {
-                $function = $handler;
-            } elseif (method_exists($handler, $soapOperation['method'])) {
-                $function = [$handler, $soapOperation['method']];
-            } else {
-                throw new ServerException("Can not find a valid callback to invoke " . $soapOperation['method']);
-            }
+            $function = $this->getCallable($handler, $soapOperation);
 
             $message = $this->extractMessage($request, $soapOperation['input']['fqcn']);
 
@@ -231,5 +225,24 @@ class Server
         $message = $this->serializer->serialize($envelope, 'xml');
         $response = $this->httpFactory->getResponseMessage($message);
         return $response->withAddedHeader("Content-Type", "text/xml; charset=utf-8");
+    }
+
+    /**
+     * @param $handler
+     * @param $soapOperation
+     * @return array|callable
+     * @throws ServerException
+     */
+    private function getCallable($handler, $soapOperation)
+    {
+        if (is_callable($handler)) {
+            $function = $handler;
+            return $function;
+        } elseif (method_exists($handler, $soapOperation['method'])) {
+            $function = [$handler, $soapOperation['method']];
+            return $function;
+        } else {
+            throw new ServerException("Can not find a valid callback to invoke " . $soapOperation['method']);
+        }
     }
 }
