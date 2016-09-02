@@ -123,8 +123,8 @@ class ServerFactory
 
     /**
      * @param string $portName
-     * @param $service
-     * @return mixed
+     * @param array $service
+     * @return array
      * @throws PortNotFoundException
      */
     private function getPort($portName, array $service)
@@ -135,8 +135,7 @@ class ServerFactory
         } elseif ($portName) {
             throw new PortNotFoundException("The port named $portName can not be found");
         } else {
-            $port = reset($service);
-            return $port;
+            return reset($service);
         }
     }
 }
