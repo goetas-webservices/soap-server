@@ -33,7 +33,7 @@ abstract class AbstractServerTest extends \PHPUnit_Framework_TestCase
         $serializer = self::$generator->buildSerializer(function (HandlerRegistryInterface $h) use ($headerHandler) {
             $h->registerSubscribingHandler($headerHandler);
         }, [
-            'GoetasWebservices\SoapServices\SoapEnvelope' => '/home/goetas/projects/webservices/src/Resources/metadata/jms'
+            'GoetasWebservices\SoapServices\SoapEnvelope' => __DIR__. '/../../src/Resources/metadata/jms'
         ]);
 
         $factory = new ServerFactory($namespaces, $serializer);
