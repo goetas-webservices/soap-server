@@ -1,7 +1,7 @@
 <?php
 namespace GoetasWebservices\SoapServices\Metadata;
 
-use Doctrine\Common\Cache\Cache;
+use Psr\Cache\CacheItemPoolInterface;
 
 class CachedPhpMetadataGenerator implements PhpMetadataGeneratorInterface
 {
@@ -10,11 +10,11 @@ class CachedPhpMetadataGenerator implements PhpMetadataGeneratorInterface
      */
     private $generator;
     /**
-     * @var Cache
+     * @var CacheItemPoolInterface
      */
     private $cache;
 
-    public function __construct(PhpMetadataGeneratorInterface $generator, Cache $cache)
+    public function __construct(PhpMetadataGeneratorInterface $generator, CacheItemPoolInterface $cache)
     {
         $this->generator = $generator;
         $this->cache = $cache;
@@ -27,11 +27,13 @@ class CachedPhpMetadataGenerator implements PhpMetadataGeneratorInterface
 
     public function generateServices($wsdl)
     {
-        if (!($cached = $this->cache->fetch(sha1($wsdl)))) {
-            $cached = $this->generator->generateServices($wsdl);
-            $this->cache->save(sha1($wsdl));
+        $item = $this->cache->getItem(sha1($wsdl));
+        if (!$item->isHit()) {
+            $services = $this->generator->generateServices($wsdl);
+            $item->set($services);
+            $this->cache->save($item);
         }
-        return $cached;
+        return $item->get();
     }
 }
 
