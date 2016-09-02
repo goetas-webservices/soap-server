@@ -82,11 +82,9 @@ class ServerFactory
         }
 
         $services = $generator->generateServices($wsdl);
-
         $service = $this->getService($serviceName, $services);
-        $port = $this->getPort($portName, $service);
 
-        return $port;
+        return $this->getPort($portName, $service);
     }
 
     public function addNamespace($uri, $phpNs)
@@ -112,8 +110,7 @@ class ServerFactory
     private function getService($serviceName, array $services)
     {
         if ($serviceName && isset($services[$serviceName])) {
-            $service = $services[$serviceName];
-            return $service;
+            return $services[$serviceName];
         } elseif ($serviceName) {
             throw new ServiceNotFoundException("The service named $serviceName can not be found");
         } else {
@@ -130,8 +127,7 @@ class ServerFactory
     private function getPort($portName, array $service)
     {
         if ($portName && isset($service[$portName])) {
-            $port = $service[$portName];
-            return $port;
+            return $service[$portName];
         } elseif ($portName) {
             throw new PortNotFoundException("The port named $portName can not be found");
         } else {

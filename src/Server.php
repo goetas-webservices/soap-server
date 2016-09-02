@@ -216,8 +216,7 @@ class Server
 
     protected function extractMessage(ServerRequestInterface $request, $class)
     {
-        $message = $this->serializer->deserialize((string)$request->getBody(), $class, 'xml');
-        return $message;
+        return $this->serializer->deserialize((string)$request->getBody(), $class, 'xml');
     }
 
     protected function reply($envelope)
@@ -236,11 +235,9 @@ class Server
     private function getCallable($handler, array $soapOperation)
     {
         if (is_callable($handler)) {
-            $function = $handler;
-            return $function;
+            return $handler;
         } elseif (method_exists($handler, $soapOperation['method'])) {
-            $function = [$handler, $soapOperation['method']];
-            return $function;
+            return [$handler, $soapOperation['method']];
         } else {
             throw new ServerException("Can not find a valid callback to invoke " . $soapOperation['method']);
         }
