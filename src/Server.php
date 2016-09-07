@@ -1,6 +1,7 @@
 <?php
 namespace GoetasWebservices\SoapServices\SoapServer;
 
+use Doctrine\Instantiator\Instantiator;
 use GoetasWebservices\SoapServices\SoapCommon as SoapCommon;
 use GoetasWebservices\SoapServices\SoapServer\Arguments\ArgumentsGenerator;
 use GoetasWebservices\SoapServices\SoapServer\Arguments\ArgumentsGeneratorInterface;
