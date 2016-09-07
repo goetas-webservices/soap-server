@@ -7,8 +7,7 @@ use Ex\GetSimple;
 use Ex\SoapEnvelope\Messages\NoInputInput;
 use Ex\SoapEnvelope\Parts\GetReturnMultiParamOutput;
 use Ex\SoapEnvelope\Parts\GetSimpleInput;
-use Zend\Diactoros\ServerRequest;
-use Zend\Diactoros\Stream;
+use GuzzleHttp\Psr7\ServerRequest;
 
 class ServerRequestResponsesTest extends AbstractServerTest
 {
@@ -35,9 +34,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
           </SOAP:Body>
         </SOAP:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
-            ['Soap-Action' => 'http://www.example.org/test/getSimple']
-        );
+        $request = new ServerRequest('POST', '/', ['Soap-Action' => 'http://www.example.org/test/getSimple'], $requestString);
 
         $response = self::$server->handle($request, function ($in) {
             $this->assertEquals('some string', $in);
@@ -88,9 +85,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
           </SOAP:Fault>
         </SOAP:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
-            ['Soap-Action' => 'http://www.example.org/test/getSimple']
-        );
+        $request = new ServerRequest('POST', '/', ['Soap-Action' => 'http://www.example.org/test/getSimple'], $requestString);
 
         $response = self::$server->handle($request, function () {
             throw new \Exception("Generic error", 5);
@@ -121,9 +116,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
           </SOAP:Body>
         </SOAP:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
-            ['Soap-Action' => 'http://www.example.org/test/getSimple']
-        );
+        $request = new ServerRequest('POST', '/', ['Soap-Action' => 'http://www.example.org/test/getSimple'], $requestString);
 
         $h = new CustomTestHandler();
         $response = self::$server->handle($request, $h);
@@ -143,9 +136,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
            </soapenv:Body>
         </soapenv:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
-            ['Soap-Action' => 'http://www.example.org/test/noOutput']
-        );
+        $request = new ServerRequest('POST', '/', ['Soap-Action' => 'http://www.example.org/test/noOutput'], $requestString);
 
         $h = new CustomTestHandler();
         $response = self::$server->handle($request, $h);
@@ -176,9 +167,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
         $responseString = trim('
         <SOAP:Envelope xmlns:SOAP="http://schemas.xmlsoap.org/soap/envelope/"/>');
 
-        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
-            ['Soap-Action' => 'http://www.example.org/test/noOutput']
-        );
+        $request = new ServerRequest('POST', '/', ['Soap-Action' => 'http://www.example.org/test/noOutput'], $requestString);
 
         $response = self::$server->handle($request, function ($in) {
             $this->assertEquals('B', $in);
@@ -204,9 +193,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
           </SOAP:Body>
         </SOAP:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
-            ['Soap-Action' => 'http://www.example.org/test/noInput']
-        );
+        $request = new ServerRequest('POST', '/', ['Soap-Action' => 'http://www.example.org/test/noInput'], $requestString);
 
         $response = self::$server->handle($request, function () {
             return "B";
@@ -244,9 +231,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
           </SOAP:Body>
         </SOAP:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
-            ['Soap-Action' => 'http://www.example.org/test/getMultiParam']
-        );
+        $request = new ServerRequest('POST', '/', ['Soap-Action' => 'http://www.example.org/test/getMultiParam'], $requestString);
 
         $response = self::$server->handle($request, function ($in, $otherParam) {
             $this->assertEquals('some string', $in);
@@ -269,9 +254,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
            </soapenv:Body>
         </soapenv:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
-            ['Soap-Action' => 'http://www.example.org/test/getReturnMultiParam']
-        );
+        $request = new ServerRequest('POST', '/', ['Soap-Action' => 'http://www.example.org/test/getReturnMultiParam'], $requestString);
 
         $response = self::$server->handle($request, function ($in) {
             $this->assertEquals('?', $in);
@@ -310,18 +293,6 @@ class ServerRequestResponsesTest extends AbstractServerTest
           </SOAP:Body>
         </SOAP:Envelope>
         '));
-    }
-
-    /**
-     * @param string $str
-     * @return Stream
-     */
-    private static function toStream($str)
-    {
-        $body = new Stream('php://memory', 'w');
-        $body->write($str);
-        $body->rewind();
-        return $body;
     }
 }
 

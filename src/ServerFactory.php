@@ -3,12 +3,13 @@ namespace GoetasWebservices\SoapServices\SoapServer;
 
 use GoetasWebservices\SoapServices\SoapCommon\Metadata\PhpMetadataGenerator;
 use GoetasWebservices\SoapServices\SoapCommon\Metadata\PhpMetadataGeneratorInterface;
-use GoetasWebservices\SoapServices\SoapServer\Message\DiactorosFactory;
-use GoetasWebservices\SoapServices\SoapServer\Message\GuzzleFactory;
+
 use GoetasWebservices\SoapServices\SoapServer\Serializer\Handler\HeaderHandler;
 use GoetasWebservices\SoapServices\SoapServer\Serializer\Handler\HeaderHandlerInterface;
 use GoetasWebservices\XML\WSDLReader\Exception\PortNotFoundException;
 use GoetasWebservices\XML\WSDLReader\Exception\ServiceNotFoundException;
+use Http\Discovery\MessageFactoryDiscovery;
+use Http\Message\MessageFactory;
 use JMS\Serializer\SerializerInterface;
 
 class ServerFactory
@@ -20,7 +21,7 @@ class ServerFactory
      */
     protected $serializer;
     /**
-     * @var MessageFactoryInterfaceFactory
+     * @var MessageFactory
      */
     protected $messageFactory;
 
@@ -52,9 +53,9 @@ class ServerFactory
     }
 
     /**
-     * @param MessageFactoryInterfaceFactory $messageFactory
+     * @param MessageFactory $messageFactory
      */
-    public function setMessageFactory(MessageFactoryInterfaceFactory $messageFactory)
+    public function setMessageFactory(MessageFactory $messageFactory)
     {
         $this->messageFactory = $messageFactory;
     }
@@ -62,18 +63,6 @@ class ServerFactory
     public function setSerializer(SerializerInterface $serializer)
     {
         $this->serializer = $serializer;
-    }
-
-    private static function buildMessageFactory()
-    {
-        if (class_exists('GuzzleHttp\Psr7\Response')) {
-            return new GuzzleFactory();
-        }
-        if (class_exists('Zend\Diactoros\Response')) {
-            return new DiactorosFactory();
-        }
-
-        throw new \Exception("Can not find a PSR-7 valid implementation");
     }
 
     public function setMetadataGenerator(PhpMetadataGeneratorInterface $generator)
@@ -102,7 +91,7 @@ class ServerFactory
 
     public function getServer($wsdl, $portName = null, $serviceName = null)
     {
-        $this->messageFactory = $this->messageFactory ?: self::buildMessageFactory();
+        $this->messageFactory = $this->messageFactory ?: MessageFactoryDiscovery::find();
         $headerHandler = $this->headerHandler ?: new HeaderHandler();
         $service = $this->getSoapService($wsdl, $portName, $serviceName);
 

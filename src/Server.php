@@ -7,8 +7,8 @@ use GoetasWebservices\SoapServices\SoapServer\Arguments\ArgumentsGeneratorInterf
 use GoetasWebservices\SoapServices\SoapServer\Exception\MustUnderstandException;
 use GoetasWebservices\SoapServices\SoapServer\Exception\ServerException;
 use GoetasWebservices\SoapServices\SoapServer\Exception\SoapServerException;
-use GoetasWebservices\SoapServices\SoapServer\Message\MessageFactoryInterface;
 use GoetasWebservices\SoapServices\SoapServer\Serializer\Handler\HeaderHandlerInterface;
+use Http\Message\MessageFactory;
 use JMS\Serializer\Serializer;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -22,9 +22,9 @@ class Server
     protected $serializer;
 
     /**
-     * @var MessageFactoryInterface
+     * @var MessageFactory
      */
-    protected $httpFactory;
+    protected $messageFactory;
 
     /**
      * @var HeaderHandlerInterface
@@ -40,13 +40,12 @@ class Server
      */
     protected $serviceDefinition;
 
-    public function __construct(array $serviceDefinition, Serializer $serializer, MessageFactoryInterface $httpFactory, HeaderHandlerInterface $headerHandler)
+    public function __construct(array $serviceDefinition, Serializer $serializer, MessageFactory $messageFactory, HeaderHandlerInterface $headerHandler)
     {
         $this->serializer = $serializer;
-        $this->httpFactory = $httpFactory;
+        $this->messageFactory = $messageFactory;
         $this->serviceDefinition = $serviceDefinition;
         $this->headerHandler = $headerHandler;
-
     }
 
     public function setArgumentsGenerator(ArgumentsGeneratorInterface $argumentsGenerator)
@@ -152,7 +151,7 @@ class Server
     protected function reply($envelope)
     {
         $message = $this->serializer->serialize($envelope, 'xml');
-        $response = $this->httpFactory->getResponse($message);
+        $response = $this->messageFactory->createResponse(200, null, [], $message);
         return $response->withAddedHeader("Content-Type", "text/xml; charset=utf-8");
     }
 
