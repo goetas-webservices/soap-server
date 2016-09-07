@@ -2,9 +2,6 @@
 
 namespace GoetasWebservices\SoapServices\SoapServer\Tests;
 
-use Cache\Adapter\Doctrine\DoctrineCachePool;
-use Doctrine\Common\Cache\ArrayCache;
-use GoetasWebservices\SoapServices\SoapCommon\Metadata\CachedPhpMetadataGenerator;
 use GoetasWebservices\SoapServices\SoapCommon\Metadata\PhpMetadataGenerator;
 use GoetasWebservices\SoapServices\SoapServer\ServerFactory;
 use GoetasWebservices\WsdlToPhp\Tests\Generator;
@@ -26,7 +23,7 @@ class BuildServerTest extends \PHPUnit_Framework_TestCase
 
         $this->factory = new ServerFactory($namespaces, $serializer);
 
-        $metadataGenerator = new CachedPhpMetadataGenerator(new PhpMetadataGenerator(), new DoctrineCachePool(new ArrayCache()));
+        $metadataGenerator = new PhpMetadataGenerator($namespaces);
         $this->factory->setMetadataGenerator($metadataGenerator);
     }
 
