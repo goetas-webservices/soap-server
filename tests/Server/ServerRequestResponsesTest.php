@@ -1,14 +1,14 @@
 <?php
 
-namespace GoetasWebservices\SoapServices\Tests;
+namespace GoetasWebservices\SoapServices\SoapServer\Tests;
 
 use Ex\GetReturnMultiParamResponse;
 use Ex\GetSimple;
 use Ex\SoapEnvelope\Messages\NoInputInput;
 use Ex\SoapEnvelope\Parts\GetReturnMultiParamOutput;
 use Ex\SoapEnvelope\Parts\GetSimpleInput;
-use GoetasWebservices\SoapServices\Message\DiactorosFactory;
 use Zend\Diactoros\ServerRequest;
+use Zend\Diactoros\Stream;
 
 class ServerRequestResponsesTest extends AbstractServerTest
 {
@@ -35,7 +35,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
           </SOAP:Body>
         </SOAP:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/getSimple']
         );
 
@@ -88,7 +88,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
           </SOAP:Fault>
         </SOAP:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/getSimple']
         );
 
@@ -121,7 +121,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
           </SOAP:Body>
         </SOAP:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/getSimple']
         );
 
@@ -143,7 +143,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
            </soapenv:Body>
         </soapenv:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/noOutput']
         );
 
@@ -176,7 +176,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
         $responseString = trim('
         <SOAP:Envelope xmlns:SOAP="http://schemas.xmlsoap.org/soap/envelope/"/>');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/noOutput']
         );
 
@@ -204,7 +204,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
           </SOAP:Body>
         </SOAP:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/noInput']
         );
 
@@ -244,7 +244,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
           </SOAP:Body>
         </SOAP:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/getMultiParam']
         );
 
@@ -269,7 +269,7 @@ class ServerRequestResponsesTest extends AbstractServerTest
            </soapenv:Body>
         </soapenv:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/getReturnMultiParam']
         );
 
@@ -310,6 +310,18 @@ class ServerRequestResponsesTest extends AbstractServerTest
           </SOAP:Body>
         </SOAP:Envelope>
         '));
+    }
+
+    /**
+     * @param string $str
+     * @return Stream
+     */
+    private static function toStream($str)
+    {
+        $body = new Stream('php://memory', 'w');
+        $body->write($str);
+        $body->rewind();
+        return $body;
     }
 }
 

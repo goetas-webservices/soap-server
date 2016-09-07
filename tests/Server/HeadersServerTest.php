@@ -1,10 +1,10 @@
 <?php
 
-namespace GoetasWebservices\SoapServices\Tests;
+namespace GoetasWebservices\SoapServices\SoapServer\Tests;
 
 use Ex\AuthHeader;
-use GoetasWebservices\SoapServices\Message\DiactorosFactory;
 use Zend\Diactoros\ServerRequest;
+use Zend\Diactoros\Stream;
 
 class HeadersServerTest extends AbstractServerTest
 {
@@ -30,7 +30,7 @@ class HeadersServerTest extends AbstractServerTest
           </SOAP:Fault>
         </SOAP:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/getSimple']
         );
 
@@ -68,7 +68,7 @@ class HeadersServerTest extends AbstractServerTest
           </SOAP:Body>
         </SOAP:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/requestHeader']
         );
 
@@ -112,7 +112,7 @@ class HeadersServerTest extends AbstractServerTest
         </SOAP:Envelope>
         ');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/requestHeader']
         );
 
@@ -151,7 +151,7 @@ class HeadersServerTest extends AbstractServerTest
         </SOAP:Envelope>
         ');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/requestHeader']
         );
 
@@ -192,7 +192,7 @@ class HeadersServerTest extends AbstractServerTest
           </SOAP:Body>
         </SOAP:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/requestHeaders']
         );
 
@@ -223,7 +223,7 @@ class HeadersServerTest extends AbstractServerTest
            </soapenv:Body>
         </soapenv:Envelope>');
 
-        $request = new ServerRequest([], [], null, 'POST', DiactorosFactory::toStream($requestString),
+        $request = new ServerRequest([], [], null, 'POST', self::toStream($requestString),
             ['Soap-Action' => 'http://www.example.org/test/getSimple']
         );
 
@@ -234,5 +234,17 @@ class HeadersServerTest extends AbstractServerTest
         $this->assertEquals('text/xml; charset=utf-8', $response->getHeaderLine('Content-Type'));
         // application/soap+xml; charset=utf-8 is for SOAP 1.2
         // text/xml; charset=utf-8  is for SOAP 1.0
+    }
+
+    /**
+     * @param string $str
+     * @return Stream
+     */
+    private static function toStream($str)
+    {
+        $body = new Stream('php://memory', 'w');
+        $body->write($str);
+        $body->rewind();
+        return $body;
     }
 }

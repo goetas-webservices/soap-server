@@ -1,10 +1,10 @@
 <?php
 
-namespace GoetasWebservices\SoapServices\Tests;
+namespace GoetasWebservices\SoapServices\SoapServer\Tests;
 
-use GoetasWebservices\SoapServices\Serializer\Handler\HeaderHandler;
-use GoetasWebservices\SoapServices\Server;
-use GoetasWebservices\SoapServices\ServerFactory;
+use GoetasWebservices\SoapServices\SoapServer\Serializer\Handler\HeaderHandler;
+use GoetasWebservices\SoapServices\SoapServer\Server;
+use GoetasWebservices\SoapServices\SoapServer\ServerFactory;
 use GoetasWebservices\WsdlToPhp\Tests\Generator;
 use JMS\Serializer\Handler\HandlerRegistryInterface;
 
@@ -33,7 +33,7 @@ abstract class AbstractServerTest extends \PHPUnit_Framework_TestCase
         $serializer = self::$generator->buildSerializer(function (HandlerRegistryInterface $h) use ($headerHandler) {
             $h->registerSubscribingHandler($headerHandler);
         }, [
-            'GoetasWebservices\SoapServices\SoapEnvelope' => __DIR__. '/../../src/Resources/metadata/jms'
+            'GoetasWebservices\SoapServices\SoapCommon\SoapEnvelope' => __DIR__ . '/../../vendor/goetas-webservices/soap-common/src/Resources/metadata/jms'
         ]);
 
         $factory = new ServerFactory($namespaces, $serializer);

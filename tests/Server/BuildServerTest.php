@@ -1,12 +1,12 @@
 <?php
 
-namespace GoetasWebservices\SoapServices\Tests;
+namespace GoetasWebservices\SoapServices\SoapServer\Tests;
 
 use Cache\Adapter\Doctrine\DoctrineCachePool;
 use Doctrine\Common\Cache\ArrayCache;
-use GoetasWebservices\SoapServices\Metadata\CachedPhpMetadataGenerator;
-use GoetasWebservices\SoapServices\Metadata\PhpMetadataGenerator;
-use GoetasWebservices\SoapServices\ServerFactory;
+use GoetasWebservices\SoapServices\SoapCommon\Metadata\CachedPhpMetadataGenerator;
+use GoetasWebservices\SoapServices\SoapCommon\Metadata\PhpMetadataGenerator;
+use GoetasWebservices\SoapServices\SoapServer\ServerFactory;
 use GoetasWebservices\WsdlToPhp\Tests\Generator;
 
 class BuildServerTest extends \PHPUnit_Framework_TestCase

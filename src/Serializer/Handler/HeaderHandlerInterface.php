@@ -1,5 +1,5 @@
 <?php
-namespace GoetasWebservices\SoapServices\Serializer\Handler;
+namespace GoetasWebservices\SoapServices\SoapServer\Serializer\Handler;
 
 interface HeaderHandlerInterface
 {

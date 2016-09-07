@@ -1,11 +1,12 @@
 <?php
-namespace GoetasWebservices\SoapServices;
+namespace GoetasWebservices\SoapServices\SoapServer;
 
-use GoetasWebservices\SoapServices\Message\DiactorosFactory;
-use GoetasWebservices\SoapServices\Serializer\Handler\HeaderHandler;
-use GoetasWebservices\SoapServices\Serializer\Handler\HeaderHandlerInterface;
-use GoetasWebservices\SoapServices\Metadata\PhpMetadataGenerator;
-use GoetasWebservices\SoapServices\Metadata\PhpMetadataGeneratorInterface;
+use GoetasWebservices\SoapServices\SoapCommon\Metadata\PhpMetadataGenerator;
+use GoetasWebservices\SoapServices\SoapCommon\Metadata\PhpMetadataGeneratorInterface;
+use GoetasWebservices\SoapServices\SoapServer\Message\DiactorosFactory;
+use GoetasWebservices\SoapServices\SoapServer\Message\GuzzleFactory;
+use GoetasWebservices\SoapServices\SoapServer\Serializer\Handler\HeaderHandler;
+use GoetasWebservices\SoapServices\SoapServer\Serializer\Handler\HeaderHandlerInterface;
 use GoetasWebservices\XML\WSDLReader\Exception\PortNotFoundException;
 use GoetasWebservices\XML\WSDLReader\Exception\ServiceNotFoundException;
 use JMS\Serializer\SerializerInterface;
@@ -63,9 +64,16 @@ class ServerFactory
         $this->serializer = $serializer;
     }
 
-    protected function buildMessageFactory()
+    private static function buildMessageFactory()
     {
-        return new DiactorosFactory();
+        if (class_exists('GuzzleHttp\Psr7\Response')) {
+            return new GuzzleFactory();
+        }
+        if (class_exists('Zend\Diactoros\Response')) {
+            return new DiactorosFactory();
+        }
+
+        throw new \Exception("Can not find a PSR-7 valid implementation");
     }
 
     public function setMetadataGenerator(PhpMetadataGeneratorInterface $generator)
@@ -94,7 +102,7 @@ class ServerFactory
 
     public function getServer($wsdl, $portName = null, $serviceName = null)
     {
-        $this->messageFactory = $this->messageFactory ?: $this->buildMessageFactory();
+        $this->messageFactory = $this->messageFactory ?: self::buildMessageFactory();
         $headerHandler = $this->headerHandler ?: new HeaderHandler();
         $service = $this->getSoapService($wsdl, $portName, $serviceName);
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace GoetasWebservices\SoapServices\Faults;
+namespace GoetasWebservices\SoapServices\SoapServer\Exception;
 
 class MustUnderstandException extends SoapServerException
 {
