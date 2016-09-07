@@ -2,6 +2,7 @@
 
 namespace GoetasWebservices\SoapServices\SoapServer\Tests;
 
+use GoetasWebservices\SoapServices\SoapCommon\SoapEnvelope\Messages\Fault;
 use GoetasWebservices\SoapServices\SoapServer\Serializer\Handler\HeaderHandler;
 use GoetasWebservices\SoapServices\SoapServer\Server;
 use GoetasWebservices\SoapServices\SoapServer\ServerFactory;
@@ -30,10 +31,13 @@ abstract class AbstractServerTest extends \PHPUnit_Framework_TestCase
         self::$generator->generate([__DIR__ . '/../Fixtures/Soap/test.wsdl']);
         self::$generator->registerAutoloader();
         $headerHandler = new HeaderHandler();
+
+        $ref = new \ReflectionClass(Fault::class);
+
         $serializer = self::$generator->buildSerializer(function (HandlerRegistryInterface $h) use ($headerHandler) {
             $h->registerSubscribingHandler($headerHandler);
         }, [
-            'GoetasWebservices\SoapServices\SoapCommon\SoapEnvelope' => __DIR__ . '/../../vendor/goetas-webservices/soap-common/src/Resources/metadata/jms'
+            'GoetasWebservices\SoapServices\SoapCommon\SoapEnvelope' => dirname($ref->getFileName()) . '/../../Resources/metadata/jms'
         ]);
 
         $factory = new ServerFactory($namespaces, $serializer);
