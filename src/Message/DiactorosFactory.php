@@ -1,27 +1,26 @@
 <?php
-namespace GoetasWebservices\SoapServices\Message;
+namespace GoetasWebservices\SoapServices\SoapServer\Message;
 
-use GoetasWebservices\SoapServices\MessageFactoryInterfaceFactory;
+use Psr\Http\Message\ResponseInterface;
 use Zend\Diactoros\Response;
 use Zend\Diactoros\Stream;
 
-class DiactorosFactory implements MessageFactoryInterfaceFactory
+class DiactorosFactory implements MessageFactoryInterface
 {
     /**
      * @param string $xml
-     * @return Response
+     * @return ResponseInterface
      */
-    public function getResponseMessage($xml)
+    public function getResponse($xml)
     {
-        $response = new Response();
-        return $response->withBody(self::toStream($xml));
+        return new Response(self::toStream($xml));
     }
 
     /**
      * @param string $str
      * @return Stream
      */
-    public static function toStream($str)
+    private static function toStream($str)
     {
         $body = new Stream('php://memory', 'w');
         $body->write($str);
