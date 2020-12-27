@@ -1,42 +1,40 @@
 <?php
-namespace GoetasWebservices\SoapServices\SoapServer\Arguments;
 
-use ArgumentsResolver\InDepthArgumentsResolver;
+declare(strict_types=1);
+
+namespace GoetasWebservices\SoapServices\SoapServer\Arguments;
 
 class ArgumentsGenerator implements ArgumentsGeneratorInterface
 {
-    /**
-     * @param mixed $envelope
-     * @param callable|null $callable
-     * @return array
-     */
-    public function expandArguments($envelope, callable $callable = null)
+    public function expandArguments(object $envelope): array
     {
-        $arguments = $this->findArguments($envelope);
-        if ($callable !== null) {
-            $arguments = (new InDepthArgumentsResolver($callable))->resolve($arguments);
-        }
-        return $arguments;
+        return $this->findArguments($envelope);
     }
 
-    private function findArguments($envelope)
+    private function findArguments(object $envelope): array
     {
         $arguments = [$envelope];
         $envelopeItems = $this->getObjectProperties($envelope);
         $arguments = $this->smartAdd($arguments, $envelopeItems);
 
-        foreach ($envelopeItems as $envelopeItem) {
+        foreach ($envelopeItems as $envelopeItemName => $envelopeItem) {
             $messageSubItems = $this->getObjectProperties($envelopeItem);
             $arguments = $this->smartAdd($arguments, $messageSubItems);
+
+            if ('body' !== $envelopeItemName) {
+                continue;
+            }
+
             foreach ($messageSubItems as $messageSubSubItems) {
                 $messageSubSubItems = $this->getObjectProperties($messageSubSubItems);
                 $arguments = $this->smartAdd($arguments, $messageSubSubItems);
             }
         }
+
         return $arguments;
     }
 
-    private function smartAdd($arguments, $messageItems)
+    private function smartAdd(array $arguments, array $messageItems): array
     {
         foreach ($messageItems as $name => $messageItem) {
             if (isset($arguments[$name])) {
@@ -46,18 +44,21 @@ class ArgumentsGenerator implements ArgumentsGeneratorInterface
                 $arguments[$name] = $messageItem;
             }
         }
+
         return $arguments;
     }
 
     /**
-     * @param object|null $object
+     * @param mixed $object
+     *
      * @return array
      */
-    private function getObjectProperties($object)
+    private function getObjectProperties($object): array
     {
         if (!is_object($object)) {
             return [];
         }
+
         $ref = new \ReflectionObject($object);
         $args = [];
         do {

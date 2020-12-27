@@ -1,13 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace GoetasWebservices\SoapServices\SoapServer\Arguments;
 
 interface ArgumentsGeneratorInterface
 {
-    /**
-     * @param mixed $envelope
-     * @param callable|null $callable
-     * @return array
-     */
-    public function expandArguments($envelope, callable $callable = null);
+    public function expandArguments(object $envelope): array;
 }

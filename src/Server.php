@@ -1,226 +1,307 @@
 <?php
+
+declare(strict_types=1);
+
 namespace GoetasWebservices\SoapServices\SoapServer;
 
-use Doctrine\Instantiator\Instantiator;
-use GoetasWebservices\SoapServices\SoapCommon as SoapCommon;
+use ArgumentsResolver\InDepthArgumentsResolver;
+use GoetasWebservices\SoapServices\Metadata\Arguments\ArgumentsReader;
+use GoetasWebservices\SoapServices\Metadata\Arguments\ArgumentsReaderInterface;
+use GoetasWebservices\SoapServices\Metadata\Arguments\Headers\HeaderBag;
+use GoetasWebservices\SoapServices\Metadata\Envelope\SoapEnvelope\Messages\Fault;
+use GoetasWebservices\SoapServices\Metadata\Envelope\SoapEnvelope12\Messages\Fault as Fault12;
 use GoetasWebservices\SoapServices\SoapServer\Arguments\ArgumentsGenerator;
 use GoetasWebservices\SoapServices\SoapServer\Arguments\ArgumentsGeneratorInterface;
 use GoetasWebservices\SoapServices\SoapServer\Exception\MustUnderstandException;
 use GoetasWebservices\SoapServices\SoapServer\Exception\ServerException;
-use GoetasWebservices\SoapServices\SoapServer\Exception\SoapServerException;
-use GoetasWebservices\SoapServices\SoapServer\Serializer\Handler\HeaderHandlerInterface;
-use Http\Message\MessageFactory;
-use JMS\Serializer\Serializer;
+use GoetasWebservices\SoapServices\SoapServer\Exception\VersionMismatchException;
+use GoetasWebservices\SoapServices\SoapServer\Router\Router;
+use JMS\Serializer\DeserializationContext;
+use JMS\Serializer\SerializerInterface;
+use Psr\Container\ContainerInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
-class Server
+class Server implements RequestHandlerInterface
 {
     /**
-     * @var Serializer
+     * @var bool
      */
-    protected $serializer;
+    private $debug = false;
 
     /**
-     * @var MessageFactory
+     * @var SerializerInterface
      */
-    protected $messageFactory;
+    private $serializer;
 
     /**
-     * @var HeaderHandlerInterface
+     * @var ResponseFactoryInterface
      */
-    protected $headerHandler;
+    private $messageFactory;
 
     /**
      * @var ArgumentsGeneratorInterface
      */
     private $argumentsGenerator;
+
     /**
      * @var array
      */
-    protected $serviceDefinition;
+    private $ports;
 
-    public function __construct(array $serviceDefinition, Serializer $serializer, MessageFactory $messageFactory, HeaderHandlerInterface $headerHandler)
-    {
+    /**
+     * @var ContainerInterface
+     */
+    private $controllerContainer;
+
+    /**
+     * @var Router
+     */
+    private $router;
+
+    /**
+     * @var ArgumentsReader
+     */
+    private $argumentsReader;
+
+    /**
+     * @var LoggerInterface|null
+     */
+    private $logger;
+
+    /**
+     * @var StreamFactoryInterface
+     */
+    private $streamFactory;
+
+    public function __construct(
+        array $ports,
+        SerializerInterface $serializer,
+        ResponseFactoryInterface $messageFactory,
+        StreamFactoryInterface $streamFactory,
+        Router $router,
+        ?ContainerInterface $controllerContainer = null,
+        ?LoggerInterface $logger = null
+    ) {
         $this->serializer = $serializer;
         $this->messageFactory = $messageFactory;
-        $this->serviceDefinition = $serviceDefinition;
-        $this->headerHandler = $headerHandler;
+        $this->ports = $ports;
+        $this->router = $router;
+        $this->controllerContainer = $controllerContainer;
+        $this->logger = $logger ?: new NullLogger();
+        $this->streamFactory = $streamFactory;
     }
 
-    public function setArgumentsGenerator(ArgumentsGeneratorInterface $argumentsGenerator)
+    private function getArgumentsReader(): ArgumentsReaderInterface
+    {
+        if (!$this->argumentsReader) {
+            $this->argumentsReader = new ArgumentsReader($this->serializer);
+        }
+
+        return $this->argumentsReader;
+    }
+
+    public function setArgumentsGenerator(ArgumentsGeneratorInterface $argumentsGenerator): void
     {
         $this->argumentsGenerator = $argumentsGenerator;
     }
 
-    protected function getArgumentsGenerator()
+    private function getArgumentsGenerator(): ArgumentsGenerator
     {
-        if (!$this->argumentsGenerator){
+        if (!$this->argumentsGenerator) {
             $this->argumentsGenerator = new ArgumentsGenerator();
         }
+
         return $this->argumentsGenerator;
     }
+
     /**
-     * @param ServerRequestInterface $request
      * @param object $handler
-     * @return ResponseInterface
      */
-    public function handle(ServerRequestInterface $request, $handler)
+    public function handle(ServerRequestInterface $request): ResponseInterface
     {
         try {
-            $soapOperation = $this->findOperation($request, $this->serviceDefinition);
+            $version = $this->guessVersion($request);
+            $soapOperation = $this->findOperation($request, $version);
+        } catch (\Throwable $e) {
+            $this->logger->error('', ['exception' => $e]);
+            $envelope = $this->handleException($e, $version ?? '1.2');
+            $message = $this->serializer->serialize($envelope, 'xml');
 
-            $message = $this->extractMessage($request, $soapOperation['input']['message_fqcn']);
-
-            $function = $this->getCallable($handler, $soapOperation);
-
-            $arguments = $this->getArgumentsGenerator()->expandArguments($message, $function);
-
-            $this->understandHeaders($arguments);
-
-            $result = call_user_func_array($function, $arguments);
-
-        } catch (\Exception $e) {
-            $fault = new SoapCommon\SoapEnvelope\Parts\Fault();
-            if (!$e instanceof SoapServerException) {
-                $e = new ServerException($e->getMessage(), $e->getCode(), $e);
-            }
-            $fault->setException($e);
-            // @todo $fault->setDetail() set detail to trace in debug mode
-            // @todo $fault->setActor() allow to set the current server actor
-        }
-        if (isset($fault)) {
-            $wrappedResult = $this->wrapResult($fault, SoapCommon\SoapEnvelope\Messages\Fault::class);
-        } else {
-            $wrappedResult = $this->wrapResult($result, $soapOperation['output']['message_fqcn']);
+            return $this->reply($message, $version ?? '1.2');
         }
 
-        return $this->reply($wrappedResult);
+        try {
+            $headerBag = new HeaderBag();
+            $context = DeserializationContext::create()->setAttribute('headers_bag', $headerBag);
+            $message = $this->extractMessage($request, $soapOperation['input']['message_fqcn'], $context);
+
+            $request = $request
+                ->withAttribute('_soap_operation', $soapOperation)
+                ->withAttribute('_message', $message);
+
+            $request = $this->router->match($request);
+            $handler = $this->getController($request, $soapOperation);
+
+            $arguments = $this->getArgumentsGenerator()->expandArguments($message);
+            $arguments = (new InDepthArgumentsResolver($handler))->resolve(array_merge($headerBag->getHeaders(), [$headerBag], $arguments));
+
+            $result = call_user_func_array($handler, $arguments);
+            $this->understandHeaders($headerBag);
+
+            $envelope = $this->getArgumentsReader()->readArguments(is_array($result) ? $result : [$result], $soapOperation['output']);
+        } catch (\Throwable $e) {
+            $envelope = $this->handleException($e, $soapOperation['version']);
+        }
+
+        $message = $this->serializer->serialize($envelope, 'xml');
+
+        return $this->reply($message, $soapOperation['version']);
+    }
+
+    public function setDebug(bool $debug): void
+    {
+        $this->debug = $debug;
+    }
+
+    private function handleException(\Throwable $e, string $version): object
+    {
+        return '1.1' === $version ? Fault::fromException($e, $this->debug) : Fault12::fromException($e, $this->debug);
     }
 
     /**
-     * @param $arguments
      * @throws MustUnderstandException
      */
-    protected function understandHeaders($arguments)
+    private function understandHeaders(HeaderBag $headerBag): void
     {
-        $toUnderstand = $this->headerHandler->getHeadersToUnderstand();
-        foreach ($arguments as $argument) {
-            if (is_object($argument)) {
-                unset($toUnderstand[spl_object_hash($argument)]);
-            }
-        }
-        $this->headerHandler->resetHeadersToUnderstand();
-        if (count($toUnderstand)) {
+        if (count($headerBag->getMustUnderstandHeader())) {
             throw new MustUnderstandException(
-                "MustUnderstand headers:[" . implode(', ', array_map([$this, 'getXmlNamesDescription'], $toUnderstand)) . "] are not understood"
+                'MustUnderstand headers:[' . implode(', ', array_map('get_class', $headerBag->getMustUnderstandHeader())) . '] are not understood'
             );
         }
     }
 
+    private function guessVersion(ServerRequestInterface $request): string
+    {
+        $contentType = $request->getHeaderLine('Content-Type');
+        if (false !== strpos($contentType, 'text/xml')) {
+            return '1.1';
+        }
+
+        if (false !== strpos($contentType, 'application/soap+xml')) {
+            return '1.2';
+        }
+
+        throw new VersionMismatchException(sprintf('The request content type %s is not a valid SOAP (1.1 or 1.2) message', $contentType));
+    }
+
     /**
-     * @param ServerRequestInterface $request
-     * @param array $serviceDefinition
      * @return array
      */
-    private function findOperation(ServerRequestInterface $request, array $serviceDefinition)
+    private function findOperation(ServerRequestInterface $request, string $version): array
     {
-        $action = trim($request->getHeaderLine('Soap-Action'), '"');
-        foreach ($serviceDefinition['operations'] as $operation) {
-            if ($operation['action'] === $action) {
-                return $operation;
+        $action = $this->findAction($request, $version);
+
+        foreach ($this->ports as $port) {
+            if ($port['version'] !== $version) {
+                continue;
             }
-        }
-        throw new ServerException("Can not find an operation to run $action service call");
-    }
 
-    /**
-     * @param object|null $input
-     * @param string $class
-     * @return object
-     * @throws \Exception
-     */
-    private function wrapResult($input, $class)
-    {
-        if (!$input instanceof $class) {
-            $instantiator = new Instantiator();
-            $factory = $this->serializer->getMetadataFactory();
-            $previous = null;
-            $previousProperty = null;
-            $nextClass = $class;
-            $originalInput = $input;
-            $i = 0;
-            while ($i++ < 4) {
-                /**
-                 * @var $classMetadata ClassMetadata
-                 */
-                if ($previousProperty && in_array($nextClass, ['double', 'string', 'float', 'integer', 'boolean'])) {
-                    $previousProperty->setValue($previous, $originalInput);
-                    break;
+            foreach ($port['operations'] as $operation) {
+                if ($operation['action'] === $action && $operation['version'] === $version) {
+                    return $operation;
                 }
-                $classMetadata = $factory->getMetadataForClass($nextClass);
-                if ($input === null && !$classMetadata->propertyMetadata) {
-                    return $instantiator->instantiate($classMetadata->name);
-                } elseif (!$classMetadata->propertyMetadata) {
-                    throw new \Exception("Can not determine how to associate the message");
-                }
-                $instance = $instantiator->instantiate($classMetadata->name);
-                /**
-                 * @var $propertyMetadata PropertyMetadata
-                 */
-                $propertyMetadata = reset($classMetadata->propertyMetadata);
-
-                if ($previous) {
-                    $previousProperty->setValue($previous, $instance);
-                } else {
-                    $input = $instance;
-                }
-                if ($originalInput instanceof $propertyMetadata->type['name']) {
-                    $propertyMetadata->setValue($instance, $originalInput);
-                    break;
-                }
-                $previous = $instance;
-                $nextClass = $propertyMetadata->type['name'];
-                $previousProperty = $propertyMetadata;
             }
         }
 
-        return $input;
+        foreach ($this->ports as $port) {
+            foreach ($port['operations'] as $operation) {
+                if ($operation['action'] === $action) {
+                    throw new VersionMismatchException(
+                        sprintf(
+                            'The requested action %s is not supported using the %s version protocol, but is supported using the %s protocol.',
+                            $action,
+                            $version,
+                            $operation['action']
+                        )
+                    );
+                }
+            }
+        }
+
+        throw new ServerException(sprintf('Can not find a valid SOAP operation to fulfill %s action', $action));
     }
 
-    private function getXmlNamesDescription($object)
+    private function extractMessage(ServerRequestInterface $request, string $class, DeserializationContext $context): object
     {
-        $factory = $this->serializer->getMetadataFactory();
-        $classMetadata = $factory->getMetadataForClass(get_class($object));
-        return "{{$classMetadata->xmlRootNamespace}}$classMetadata->xmlRootName";
+        return $this->serializer->deserialize((string) $request->getBody(), $class, 'xml', $context);
     }
 
-    protected function extractMessage(ServerRequestInterface $request, $class)
+    private function reply(string $message, string $version): ResponseInterface
     {
-        return $this->serializer->deserialize((string)$request->getBody(), $class, 'xml');
+        $response = $this->messageFactory
+            ->createResponse()
+            ->withBody($this->streamFactory->createStream($message));
+
+        if ('1.1' === $version) {
+            return $response->withAddedHeader('Content-Type', 'text/xml; charset=utf-8');
+        } else {
+            return $response->withAddedHeader('Content-Type', 'application/soap+xml; charset=utf-8');
+        }
     }
 
-    protected function reply($envelope)
+    private function getController(ServerRequestInterface $request, array $soapOperation): callable
     {
-        $message = $this->serializer->serialize($envelope, 'xml');
-        $response = $this->messageFactory->createResponse(200, null, [], $message);
-        return $response->withAddedHeader("Content-Type", "text/xml; charset=utf-8");
+        $controller = $request->getAttribute('_controller');
+        $mch = null;
+
+        if (is_callable($controller)) {
+            return $controller;
+        }
+
+        if (null !== $this->controllerContainer) {
+            if (is_string($controller) && preg_match('/^(.+)::(.+)$/', $controller, $mch)) {
+                return \Closure::fromCallable([$this->controllerContainer->get($mch[1]), $mch[2]]); // @todo check format
+            } elseif (is_string($controller)) {
+                return $this->controllerContainer->get($controller); // @todo check format
+            }
+        }
+
+        $identifier = $soapOperation['action'] ?? $soapOperation['message_fqcn'];
+
+        throw new ServerException(sprintf('Can not find an handler to run %s', $identifier));
     }
 
     /**
-     * @param $handler
-     * @param array $soapOperation
-     * @return array|callable
      * @throws ServerException
      */
-    private function getCallable($handler, array $soapOperation)
+    private function findAction(ServerRequestInterface $request, string $version): ?string
     {
-        if (is_callable($handler)) {
-            return $handler;
-        } elseif (method_exists($handler, $soapOperation['method'])) {
-            return [$handler, $soapOperation['method']];
+        $mch = null;
+        if ('1.1' === $version) {
+            $action = $request->getHeaderLine('SOAPAction');
+        } elseif ('1.2' === $version) {
+            $contentType = $request->getHeaderLine('Content-Type');
+            if (preg_match('/action=(.*)/', $contentType, $mch)) {
+                $action = $mch[1];
+            } elseif ($request->hasHeader('SOAPAction')) {
+                $action = $request->getHeaderLine('SOAPAction');
+            }
         } else {
-            throw new ServerException("Can not find a valid callback to invoke " . $soapOperation['method']);
+            throw new ServerException('Invalid Format');
         }
+
+        if ('""' === $action) {
+            $action = (string) $request->getUri();
+        } else {
+            $action = trim($action, '"');
+        }
+
+        return $action;
     }
 }

@@ -1,134 +1,130 @@
 <?php
+
+declare(strict_types=1);
+
 namespace GoetasWebservices\SoapServices\SoapServer;
 
-use GoetasWebservices\SoapServices\SoapCommon\Metadata\PhpMetadataGenerator;
-use GoetasWebservices\SoapServices\SoapCommon\Metadata\PhpMetadataGeneratorInterface;
-
-use GoetasWebservices\SoapServices\SoapServer\Serializer\Handler\HeaderHandler;
-use GoetasWebservices\SoapServices\SoapServer\Serializer\Handler\HeaderHandlerInterface;
-use GoetasWebservices\XML\WSDLReader\Exception\PortNotFoundException;
-use GoetasWebservices\XML\WSDLReader\Exception\ServiceNotFoundException;
-use Http\Discovery\MessageFactoryDiscovery;
-use Http\Message\MessageFactory;
+use GoetasWebservices\SoapServices\Metadata\Loader\MetadataLoaderInterface;
+use GoetasWebservices\SoapServices\Metadata\MetadataUtils;
+use GoetasWebservices\SoapServices\SoapServer\Arguments\ArgumentsGeneratorInterface;
+use GoetasWebservices\SoapServices\SoapServer\Router\Router;
+use Http\Discovery\Psr17FactoryDiscovery;
 use JMS\Serializer\SerializerInterface;
+use Psr\Container\ContainerInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 
 class ServerFactory
 {
-    protected $namespaces = [];
-    protected $metadata = [];
     /**
      * @var SerializerInterface
      */
     protected $serializer;
+
     /**
-     * @var MessageFactory
+     * @var ResponseFactoryInterface
      */
     protected $messageFactory;
 
     /**
-     * @var HeaderHandlerInterface
+     * @var Router
      */
-    protected $headerHandler;
+    private $router;
 
     /**
-     * @var PhpMetadataGeneratorInterface
+     * @var ContainerInterface
      */
-    private $generator;
+    private $controllerContainer;
 
-    public function __construct(array $namespaces, SerializerInterface $serializer)
+    /**
+     * @var ArgumentsGeneratorInterface
+     */
+    private $argumentsGenerator;
+
+    /**
+     * @var MetadataLoaderInterface
+     */
+    private $metadataLoader;
+
+    /**
+     * @var StreamFactoryInterface
+     */
+    private $streamFactory;
+
+    public function __construct(MetadataLoaderInterface $metadataLoader, SerializerInterface $serializer, Router $router)
     {
-        $this->setSerializer($serializer);
-
-        foreach ($namespaces as $namespace => $phpNamespace) {
-            $this->addNamespace($namespace, $phpNamespace);
-        }
+        $this->serializer = $serializer;
+        $this->router = $router;
+        $this->metadataLoader = $metadataLoader;
     }
 
-    /**
-     * @param HeaderHandlerInterface $headerHandler
-     */
-    public function setHeaderHandler(HeaderHandlerInterface $headerHandler)
+    public function setRouter(Router $router): void
     {
-        $this->headerHandler = $headerHandler;
+        $this->router = $router;
     }
 
-    /**
-     * @param MessageFactory $messageFactory
-     */
-    public function setMessageFactory(MessageFactory $messageFactory)
+    public function setControllerContainer(ContainerInterface $controllerContainer): void
+    {
+        $this->controllerContainer = $controllerContainer;
+    }
+
+    public function setMessageFactory(ResponseFactoryInterface $messageFactory): void
     {
         $this->messageFactory = $messageFactory;
     }
 
-    public function setSerializer(SerializerInterface $serializer)
+    public function setMetadataReader(MetadataLoaderInterface $reader): void
     {
-        $this->serializer = $serializer;
+        $this->metadataLoader = $reader;
     }
 
-    public function setMetadataGenerator(PhpMetadataGeneratorInterface $generator)
+    private function getSoapService(string $wsdl, ?string $serviceName = null): array
     {
-        $this->generator = $generator;
+        $servicesMetadata = $this->metadataLoader->load($wsdl);
+
+        return MetadataUtils::getService($serviceName, $servicesMetadata);
     }
 
-    private function getSoapService($wsdl, $portName = null, $serviceName = null)
+    private function getMessageFactory(): ResponseFactoryInterface
     {
-        $generator = $this->generator ?: new PhpMetadataGenerator();
-
-        foreach ($this->namespaces as $ns => $phpNs) {
-            $generator->addNamespace($ns, $phpNs);
+        if (!$this->messageFactory) {
+            $this->messageFactory =  Psr17FactoryDiscovery::findResponseFactory();
         }
 
-        $services = $generator->generateServices($wsdl);
-        $service = $this->getService($serviceName, $services);
-
-        return $this->getPort($portName, $service);
+        return $this->messageFactory;
     }
 
-    public function addNamespace($uri, $phpNs)
+    private function getStreamFactory(): StreamFactoryInterface
     {
-        $this->namespaces[$uri] = $phpNs;
-    }
-
-    public function getServer($wsdl, $portName = null, $serviceName = null)
-    {
-        $this->messageFactory = $this->messageFactory ?: MessageFactoryDiscovery::find();
-        $headerHandler = $this->headerHandler ?: new HeaderHandler();
-        $service = $this->getSoapService($wsdl, $portName, $serviceName);
-
-        return new Server($service, $this->serializer, $this->messageFactory, $headerHandler);
-    }
-
-    /**
-     * @param $serviceName
-     * @param array $services
-     * @return array
-     * @throws ServiceNotFoundException
-     */
-    private function getService($serviceName, array $services)
-    {
-        if ($serviceName && isset($services[$serviceName])) {
-            return $services[$serviceName];
-        } elseif ($serviceName) {
-            throw new ServiceNotFoundException("The service named $serviceName can not be found");
-        } else {
-            return reset($services);
+        if (!$this->streamFactory) {
+            $this->streamFactory =  Psr17FactoryDiscovery::findStreamFactory();
         }
+
+        return $this->streamFactory;
     }
 
-    /**
-     * @param string $portName
-     * @param array $service
-     * @return array
-     * @throws PortNotFoundException
-     */
-    private function getPort($portName, array $service)
+    public function setArgumentsGenerator(ArgumentsGeneratorInterface $argumentsGenerator): void
     {
-        if ($portName && isset($service[$portName])) {
-            return $service[$portName];
-        } elseif ($portName) {
-            throw new PortNotFoundException("The port named $portName can not be found");
-        } else {
-            return reset($service);
+        $this->argumentsGenerator = $argumentsGenerator;
+    }
+
+    public function getServer(string $wsdl, ?string $serviceName = null): Server
+    {
+        $service = $this->getSoapService($wsdl, $serviceName);
+
+        $server = new Server(
+            $service,
+            $this->serializer,
+            $this->getMessageFactory(),
+            $this->getStreamFactory(),
+            $this->router,
+            $this->controllerContainer
+        );
+
+        if ($this->argumentsGenerator) {
+            $server->setArgumentsGenerator($this->argumentsGenerator);
         }
+
+        return $server;
     }
 }

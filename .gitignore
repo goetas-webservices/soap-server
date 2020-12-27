@@ -1,3 +1,11 @@
-.idea
+/.idea
 /vendor
-composer.lock
+/composer.lock
+tmp
+/cover
+/old
+/htm
+/soap-metadata
+/phpcov*
+/.phpunit.result.cache
+/.phpcs-cache

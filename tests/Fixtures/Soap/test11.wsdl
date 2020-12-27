@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<wsdl:definitions xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:tns="http://www.example.org/test/"
+<wsdl:definitions xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://www.example.org/test/"
                   xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
                   xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/"
                   name="test" targetNamespace="http://www.example.org/test/">
@@ -200,11 +200,11 @@
     </wsdl:types>
 
     <wsdl:message name="responseFault">
-        <wsdl:part name="responseFaultPart1" element="tns:aFault"/>
-        <wsdl:part name="responseFaultPart2" element="tns:bFault"/>
+        <wsdl:part name="responseFaultPart1" element="tns:aFault"></wsdl:part>
+        <wsdl:part name="responseFaultPart2" element="tns:bFault"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="responseFault2">
-        <wsdl:part name="responseFaultPart2" element="tns:bFault"/>
+        <wsdl:part name="responseFaultPart2" element="tns:bFault"></wsdl:part>
     </wsdl:message>
 
     <wsdl:message name="requestHeader">
@@ -218,126 +218,126 @@
         <wsdl:part element="tns:getSimpleResponse" name="parameters"/>
     </wsdl:message>
     <wsdl:message name="getMultiParamRequest">
-        <wsdl:part name="parameters" element="tns:getMultiParam"/>
-        <wsdl:part name="other-param" type="xsd:string"/>
+        <wsdl:part name="parameters" element="tns:getMultiParam"></wsdl:part>
+        <wsdl:part name="other-param" type="xsd:string"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="getMultiParamResponse">
-        <wsdl:part name="parameters" element="tns:getMultiParamResponse"/>
+        <wsdl:part name="parameters" element="tns:getMultiParamResponse"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="getReturnMultiParamRequest">
-        <wsdl:part name="parameters" element="tns:getReturnMultiParam"/>
+        <wsdl:part name="parameters" element="tns:getReturnMultiParam"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="getReturnMultiParamResponse">
-        <wsdl:part name="parameters" element="tns:getReturnMultiParamResponse"/>
-        <wsdl:part name="other-param" type="xsd:string"/>
+        <wsdl:part name="parameters" element="tns:getReturnMultiParamResponse"></wsdl:part>
+        <wsdl:part name="other-param" type="xsd:string"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="getTypeRequest">
-        <wsdl:part name="parameters" type="tns:customComplex"/>
+        <wsdl:part name="parameters" type="tns:customComplex"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="getTypeResponse">
-        <wsdl:part name="parameters" element="tns:getTypeResponse"/>
+        <wsdl:part name="parameters" element="tns:getTypeResponse"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="requestHeaderRequest">
-        <wsdl:part name="parameters" element="tns:requestHeader"/>
+        <wsdl:part name="parameters" element="tns:requestHeader"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="requestHeaderResponse">
-        <wsdl:part name="parameters" element="tns:requestHeaderResponse"/>
+        <wsdl:part name="parameters" element="tns:requestHeaderResponse"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="requestHeadersRequest">
-        <wsdl:part name="parameters" element="tns:requestHeaders"/>
+        <wsdl:part name="parameters" element="tns:requestHeaders"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="requestHeadersResponse">
-        <wsdl:part name="parameters" element="tns:requestHeadersResponse"/>
+        <wsdl:part name="parameters" element="tns:requestHeadersResponse"></wsdl:part>
     </wsdl:message>
 
     <wsdl:message name="doSomethingRequest">
-        <wsdl:part name="parameters" element="tns:doSomething"/>
+        <wsdl:part name="parameters" element="tns:doSomething"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="doSomethingResponse">
-        <wsdl:part name="parameters" element="tns:doSomethingResponse"/>
+        <wsdl:part name="parameters" element="tns:doSomethingResponse"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="responseHaderRequest">
-        <wsdl:part name="parameters" element="tns:responseHader"/>
+        <wsdl:part name="parameters" element="tns:responseHader"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="responseHaderResponse">
-        <wsdl:part name="parameters" element="tns:responseHaderResponse"/>
+        <wsdl:part name="parameters" element="tns:responseHaderResponse"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="responseFaultRequest">
-        <wsdl:part name="parameters" element="tns:responseFault"/>
+        <wsdl:part name="parameters" element="tns:responseFault"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="responseFaultResponse">
-        <wsdl:part name="parameters" element="tns:responseFaultResponse"/>
+        <wsdl:part name="parameters" element="tns:responseFaultResponse"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="responseFaultsRequest">
-        <wsdl:part name="parameters" element="tns:responseFaults"/>
+        <wsdl:part name="parameters" element="tns:responseFaults"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="responseFaultsResponse">
-        <wsdl:part name="parameters" element="tns:responseFaultsResponse"/>
+        <wsdl:part name="parameters" element="tns:responseFaultsResponse"></wsdl:part>
     </wsdl:message>
-    <wsdl:message name="noInputRequest"/>
+    <wsdl:message name="noInputRequest"></wsdl:message>
     <wsdl:message name="noInputResponse">
-        <wsdl:part name="parameters" element="tns:noInputResponse"/>
+        <wsdl:part name="parameters" element="tns:noInputResponse"></wsdl:part>
     </wsdl:message>
     <wsdl:message name="noOutputRequest">
-        <wsdl:part name="parameters" element="tns:noOutput"/>
+        <wsdl:part name="parameters" element="tns:noOutput"></wsdl:part>
     </wsdl:message>
-    <wsdl:message name="noOutputResponse"/>
-    <wsdl:message name="noBothRequest"/>
-    <wsdl:message name="noBothResponse"/>
+    <wsdl:message name="noOutputResponse"></wsdl:message>
+    <wsdl:message name="noBothRequest"></wsdl:message>
+    <wsdl:message name="noBothResponse"></wsdl:message>
     <wsdl:portType name="test">
         <wsdl:operation name="getSimple">
             <wsdl:input message="tns:getSimpleRequest"/>
             <wsdl:output message="tns:getSimpleResponse"/>
         </wsdl:operation>
         <wsdl:operation name="getMultiParam">
-            <wsdl:input message="tns:getMultiParamRequest"/>
-            <wsdl:output message="tns:getMultiParamResponse"/>
+            <wsdl:input message="tns:getMultiParamRequest"></wsdl:input>
+            <wsdl:output message="tns:getMultiParamResponse"></wsdl:output>
         </wsdl:operation>
         <wsdl:operation name="getReturnMultiParam">
-            <wsdl:input message="tns:getReturnMultiParamRequest"/>
-            <wsdl:output message="tns:getReturnMultiParamResponse"/>
+            <wsdl:input message="tns:getReturnMultiParamRequest"></wsdl:input>
+            <wsdl:output message="tns:getReturnMultiParamResponse"></wsdl:output>
         </wsdl:operation>
         <wsdl:operation name="requestHeader">
-            <wsdl:input message="tns:requestHeaderRequest"/>
-            <wsdl:output message="tns:requestHeaderResponse"/>
+            <wsdl:input message="tns:requestHeaderRequest"></wsdl:input>
+            <wsdl:output message="tns:requestHeaderResponse"></wsdl:output>
         </wsdl:operation>
         <wsdl:operation name="requestHeaders">
-            <wsdl:input message="tns:requestHeadersRequest"/>
-            <wsdl:output message="tns:requestHeadersResponse"/>
+            <wsdl:input message="tns:requestHeadersRequest"></wsdl:input>
+            <wsdl:output message="tns:requestHeadersResponse"></wsdl:output>
         </wsdl:operation>
         <wsdl:operation name="responseHader">
-            <wsdl:input message="tns:responseHaderRequest"/>
-            <wsdl:output message="tns:responseHaderResponse"/>
+            <wsdl:input message="tns:responseHaderRequest"></wsdl:input>
+            <wsdl:output message="tns:responseHaderResponse"></wsdl:output>
         </wsdl:operation>
         <wsdl:operation name="responseFault">
-            <wsdl:input message="tns:responseFaultRequest"/>
-            <wsdl:output message="tns:responseFaultResponse"/>
-            <wsdl:fault name="error" message="tns:responseFault"/>
+            <wsdl:input message="tns:responseFaultRequest"></wsdl:input>
+            <wsdl:output message="tns:responseFaultResponse"></wsdl:output>
+            <wsdl:fault name="error" message="tns:responseFault"></wsdl:fault>
         </wsdl:operation>
         <wsdl:operation name="responseFaults">
-            <wsdl:input message="tns:responseFaultsRequest"/>
-            <wsdl:output message="tns:responseFaultsResponse"/>
-            <wsdl:fault name="error" message="tns:responseFault"/>
-            <wsdl:fault name="error2" message="tns:responseFault2"/>
+            <wsdl:input message="tns:responseFaultsRequest"></wsdl:input>
+            <wsdl:output message="tns:responseFaultsResponse"></wsdl:output>
+            <wsdl:fault name="error" message="tns:responseFault"></wsdl:fault>
+            <wsdl:fault name="error2" message="tns:responseFault2"></wsdl:fault>
         </wsdl:operation>
         <wsdl:operation name="noInput">
-            <wsdl:input message="tns:noInputRequest"/>
-            <wsdl:output message="tns:noInputResponse"/>
+            <wsdl:input message="tns:noInputRequest"></wsdl:input>
+            <wsdl:output message="tns:noInputResponse"></wsdl:output>
         </wsdl:operation>
         <wsdl:operation name="noOutput">
-            <wsdl:input message="tns:noOutputRequest"/>
-            <wsdl:output message="tns:noOutputResponse"/>
+            <wsdl:input message="tns:noOutputRequest"></wsdl:input>
+            <wsdl:output message="tns:noOutputResponse"></wsdl:output>
         </wsdl:operation>
         <wsdl:operation name="noBoth">
-            <wsdl:input message="tns:noBothRequest"/>
-            <wsdl:output message="tns:noBothResponse"/>
+            <wsdl:input message="tns:noBothRequest"></wsdl:input>
+            <wsdl:output message="tns:noBothResponse"></wsdl:output>
         </wsdl:operation>
     </wsdl:portType>
 
     <wsdl:portType name="alternativeTPort">
         <wsdl:operation name="doSomething">
-            <wsdl:input message="tns:doSomethingRequest"/>
-            <wsdl:output message="tns:doSomethingResponse"/>
+            <wsdl:input message="tns:doSomethingRequest"></wsdl:input>
+            <wsdl:output message="tns:doSomethingResponse"></wsdl:output>
         </wsdl:operation>
     </wsdl:portType>
     <wsdl:binding name="testSOAP" type="tns:test">
