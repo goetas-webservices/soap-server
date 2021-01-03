@@ -10,3 +10,4 @@ tmp
 /phpcov*
 /.phpunit.result.cache
 /.phpcs-cache
+/code-coverage-data

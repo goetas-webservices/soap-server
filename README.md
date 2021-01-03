@@ -142,14 +142,36 @@ $serializer = SoapContainerBuilder::createSerializerBuilderFromContainer($contai
 $metadata = $container->get('goetas_webservices.soap.metadata_reader');
 
 $handler = new class() {
-    function someAction($someParam) 
+    function anAction($someParam) 
     {
         return 'OK 123';
     }
     
-    function anotherAction($someParam) 
+    function someAction($someParam, HeadersIncoming $headersIncoming) 
     {
+        $headers = $headersIncoming->getRawheader();
+        
+        // perform some checks on $headers here
+        
+        return 'OK 123';
+    }
+    
+    function anotherAction($someParam, HeadersOutgoing $headersOutgoing) 
+    {
+        // reply with custom headers
+        $headersOutgoing->addHeader(new Header(new SomeHeaderData()));
+        
+        // reply with custom headers in pure xml
+        $dom = new DOMDocument();
+        $dom->appendChild($dom->createElement('foo', 'bar')); 
+        $headersOutgoing->addHeader(new Header($dom->documentElement));
+        
         return 'OK 456';
+    }
+    
+    function someErrAction($someParam) 
+    {
+        throw new CustomExcpetion(); // converted in a soap fault
     }
 }; 
 
