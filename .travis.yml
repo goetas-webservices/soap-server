@@ -17,7 +17,7 @@ matrix:
       env: COMPOSER_FLAGS='--prefer-lowest --prefer-stable'
 
 before_script:
-  - phpenv config-rm xdebug.ini; fi
+  - phpenv config-rm xdebug.ini
   - composer self-update --1
   - composer update $COMPOSER_FLAGS
 
