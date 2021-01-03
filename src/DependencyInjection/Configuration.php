@@ -16,8 +16,12 @@ class Configuration implements ConfigurationInterface
      */
     public function getConfigTreeBuilder(): TreeBuilder
     {
-        $treeBuilder = new TreeBuilder();
-        $rootNode = $treeBuilder->root('soap_server');
+        $treeBuilder = new TreeBuilder('soap_server');
+        if (method_exists($treeBuilder, 'getRootNode')) {
+            $rootNode = $treeBuilder->getRootNode();
+        } else {
+            $rootNode = $treeBuilder->root('soap_server');
+        }
         $rootNode
             ->children()
             ->scalarNode('naming_strategy')
