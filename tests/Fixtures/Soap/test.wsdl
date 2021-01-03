@@ -201,7 +201,6 @@
 
     <wsdl:message name="responseFault">
         <wsdl:part name="responseFaultPart1" element="tns:aFault"/>
-        <wsdl:part name="responseFaultPart2" element="tns:bFault"/>
     </wsdl:message>
     <wsdl:message name="responseFault2">
         <wsdl:part name="responseFaultPart2" element="tns:bFault"/>

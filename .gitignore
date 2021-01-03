@@ -1,4 +1,5 @@
 /.idea
+/soap
 /vendor
 /composer.lock
 tmp

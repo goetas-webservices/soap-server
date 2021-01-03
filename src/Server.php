@@ -7,16 +7,17 @@ namespace GoetasWebservices\SoapServices\SoapServer;
 use ArgumentsResolver\InDepthArgumentsResolver;
 use GoetasWebservices\SoapServices\Metadata\Arguments\ArgumentsReader;
 use GoetasWebservices\SoapServices\Metadata\Arguments\ArgumentsReaderInterface;
-use GoetasWebservices\SoapServices\Metadata\Arguments\Headers\HeaderBag;
-use GoetasWebservices\SoapServices\Metadata\Envelope\SoapEnvelope\Messages\Fault;
-use GoetasWebservices\SoapServices\Metadata\Envelope\SoapEnvelope12\Messages\Fault as Fault12;
+use GoetasWebservices\SoapServices\Metadata\Headers\HeadersIncoming;
+use GoetasWebservices\SoapServices\Metadata\Headers\HeadersOutgoing;
 use GoetasWebservices\SoapServices\SoapServer\Arguments\ArgumentsGenerator;
 use GoetasWebservices\SoapServices\SoapServer\Arguments\ArgumentsGeneratorInterface;
 use GoetasWebservices\SoapServices\SoapServer\Exception\MustUnderstandException;
 use GoetasWebservices\SoapServices\SoapServer\Exception\ServerException;
+use GoetasWebservices\SoapServices\SoapServer\Exception\SoapServerException;
 use GoetasWebservices\SoapServices\SoapServer\Exception\VersionMismatchException;
 use GoetasWebservices\SoapServices\SoapServer\Router\Router;
 use JMS\Serializer\DeserializationContext;
+use JMS\Serializer\SerializationContext;
 use JMS\Serializer\SerializerInterface;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -125,20 +126,23 @@ class Server implements RequestHandlerInterface
      */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
+        $responseHeaders = new HeadersOutgoing();
+        $serializationContext = SerializationContext::create()->setAttribute('headers_outgoing', $responseHeaders);
+        $version = '1.2';
         try {
             $version = $this->guessVersion($request);
             $soapOperation = $this->findOperation($request, $version);
         } catch (\Throwable $e) {
-            $this->logger->error('', ['exception' => $e]);
-            $envelope = $this->handleException($e, $version ?? '1.2');
+            $this->logger->error($e->getMessage(), ['exception' => $e]);
+            $envelope = $this->handleException($e, $version);
             $message = $this->serializer->serialize($envelope, 'xml');
 
-            return $this->reply($message, $version ?? '1.2');
+            return $this->reply($message, $version);
         }
 
+        $requestHeaders = new HeadersIncoming();
         try {
-            $headerBag = new HeaderBag();
-            $context = DeserializationContext::create()->setAttribute('headers_bag', $headerBag);
+            $context = DeserializationContext::create()->setAttribute('headers_incoming', $requestHeaders);
             $message = $this->extractMessage($request, $soapOperation['input']['message_fqcn'], $context);
 
             $request = $request
@@ -149,17 +153,17 @@ class Server implements RequestHandlerInterface
             $handler = $this->getController($request, $soapOperation);
 
             $arguments = $this->getArgumentsGenerator()->expandArguments($message);
-            $arguments = (new InDepthArgumentsResolver($handler))->resolve(array_merge($headerBag->getHeaders(), [$headerBag], $arguments));
+            $arguments = (new InDepthArgumentsResolver($handler))->resolve(array_merge([$responseHeaders, $requestHeaders], $arguments));
 
             $result = call_user_func_array($handler, $arguments);
-            $this->understandHeaders($headerBag);
+            $this->understandHeaders($requestHeaders);
 
             $envelope = $this->getArgumentsReader()->readArguments(is_array($result) ? $result : [$result], $soapOperation['output']);
         } catch (\Throwable $e) {
             $envelope = $this->handleException($e, $soapOperation['version']);
         }
 
-        $message = $this->serializer->serialize($envelope, 'xml');
+        $message = $this->serializer->serialize($envelope, 'xml', $serializationContext);
 
         return $this->reply($message, $soapOperation['version']);
     }
@@ -171,33 +175,43 @@ class Server implements RequestHandlerInterface
 
     private function handleException(\Throwable $e, string $version): object
     {
-        return '1.1' === $version ? Fault::fromException($e, $this->debug) : Fault12::fromException($e, $this->debug);
+        return '1.1' === $version ? SoapServerException::to11Fault($e, $this->debug) : SoapServerException::to12Fault($e, $this->debug);
     }
 
     /**
      * @throws MustUnderstandException
      */
-    private function understandHeaders(HeaderBag $headerBag): void
+    private function understandHeaders(HeadersIncoming $requestHeaders): void
     {
-        if (count($headerBag->getMustUnderstandHeader())) {
+        $headers = $requestHeaders->headersNotUnderstood();
+        if (count($headers)) {
+            $findName = static function (\SimpleXMLElement $node) {
+                $domElement = dom_import_simplexml($node);
+
+                return sprintf('%s{%s}', $domElement->localName, $domElement->namespaceURI);
+            };
+
             throw new MustUnderstandException(
-                'MustUnderstand headers:[' . implode(', ', array_map('get_class', $headerBag->getMustUnderstandHeader())) . '] are not understood'
+                'MustUnderstand headers: ' . implode(', ', array_map($findName, $headers)) . ' are not understood'
             );
         }
     }
 
     private function guessVersion(ServerRequestInterface $request): string
     {
-        $contentType = $request->getHeaderLine('Content-Type');
-        if (false !== strpos($contentType, 'text/xml')) {
-            return '1.1';
+        $body = (string) $request->getBody();
+        if (false !== strpos($body, 'http://schemas.xmlsoap.org/soap/envelope/') || false !== strpos($body, 'http://www.w3.org/2003/05/soap-envelope')) {
+            $contentType = $request->getHeaderLine('Content-Type');
+            if (false !== strpos($contentType, 'text/xml')) {
+                return '1.1';
+            }
+
+            if (false !== strpos($contentType, 'application/soap+xml')) {
+                return '1.2';
+            }
         }
 
-        if (false !== strpos($contentType, 'application/soap+xml')) {
-            return '1.2';
-        }
-
-        throw new VersionMismatchException(sprintf('The request content type %s is not a valid SOAP (1.1 or 1.2) message', $contentType));
+        throw new VersionMismatchException(sprintf('The request is not a valid SOAP (1.1 or 1.2) message'));
     }
 
     /**
@@ -227,7 +241,7 @@ class Server implements RequestHandlerInterface
                             'The requested action %s is not supported using the %s version protocol, but is supported using the %s protocol.',
                             $action,
                             $version,
-                            $operation['action']
+                            $operation['version']
                         )
                     );
                 }

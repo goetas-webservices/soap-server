@@ -23,3 +23,5 @@ before_script:
 
 script:
   - vendor/phpunit/phpunit/phpunit $PHPUNIT_FLAGS
+  - bin/soap-server generate tests/Fixtures/Soap/config.yml soap/src/Container -vvv --dest-class=TestNs/Container/SoapServerContainer
+  - php tests/example.php

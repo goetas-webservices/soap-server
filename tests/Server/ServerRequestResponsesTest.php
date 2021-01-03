@@ -14,12 +14,12 @@ use Ex\SoapEnvelope12\Messages\GetSimpleOutput as GetSimpleOutputMessage;
 use Ex\SoapParts\GetReturnMultiParamOutput;
 use Ex\SoapParts\GetSimpleInput;
 use Ex\SoapParts\GetSimpleOutput;
-use GoetasWebservices\SoapServices\Metadata\Arguments\Headers\Handler\FaultHandler;
-use GoetasWebservices\SoapServices\Metadata\Arguments\Headers\Handler\HeaderHandler;
-use GoetasWebservices\SoapServices\Metadata\Arguments\Headers\Handler\HeaderPlaceholder;
-use GoetasWebservices\SoapServices\Metadata\Arguments\Headers\HeaderBag;
 use GoetasWebservices\SoapServices\Metadata\Envelope\SoapEnvelope\Parts\Fault;
 use GoetasWebservices\SoapServices\Metadata\Generator\MetadataGenerator;
+use GoetasWebservices\SoapServices\Metadata\Headers\Handler\HeaderHandler;
+use GoetasWebservices\SoapServices\Metadata\Headers\Header;
+use GoetasWebservices\SoapServices\Metadata\Headers\HeadersIncoming;
+use GoetasWebservices\SoapServices\Metadata\Headers\HeadersOutgoing;
 use GoetasWebservices\SoapServices\Metadata\Loader\DevMetadataLoader;
 use GoetasWebservices\SoapServices\SoapServer\Exception\FaultException;
 use GoetasWebservices\SoapServices\SoapServer\Router\CallbackRoute;
@@ -33,7 +33,9 @@ use GoetasWebservices\XML\SOAPReader\SoapReader;
 use GoetasWebservices\XML\WSDLReader\DefinitionsReader;
 use GoetasWebservices\Xsd\XsdToPhp\Naming\ShortNamingStrategy;
 use GuzzleHttp\Psr7\ServerRequest;
+use JMS\Serializer\EventDispatcher\EventDispatcherInterface;
 use JMS\Serializer\Handler\HandlerRegistryInterface;
+use JMS\Serializer\SerializerBuilder;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\DependencyInjection\Container;
@@ -87,15 +89,20 @@ class ServerRequestResponsesTest extends TestCase
     public function setUp(): void
     {
         $ref = new \ReflectionClass(Fault::class);
-        $refPl = new \ReflectionClass(HeaderPlaceholder::class);
-        $headerHandler = new HeaderHandler();
-        $serializer = self::$generator->buildSerializer(static function (HandlerRegistryInterface $h) use ($headerHandler): void {
-            $h->registerSubscribingHandler($headerHandler);
-            $h->registerSubscribingHandler(new FaultHandler());
+
+        $serializer = self::$generator->buildSerializer(static function (SerializerBuilder $builder): void {
+            $headerHandler = new HeaderHandler();
+            $builder->configureListeners(static function (EventDispatcherInterface $d) use ($builder, $headerHandler): void {
+                $builder->addDefaultListeners();
+                $d->addSubscriber($headerHandler);
+            });
+            $builder->configureHandlers(static function (HandlerRegistryInterface $h) use ($builder, $headerHandler): void {
+                $builder->addDefaultHandlers();
+                $h->registerSubscribingHandler($headerHandler);
+            });
         }, [
             'GoetasWebservices\SoapServices\Metadata\Envelope\SoapEnvelope12' => dirname($ref->getFileName()) . '/../../../Resources/metadata/jms12',
             'GoetasWebservices\SoapServices\Metadata\Envelope\SoapEnvelope' => dirname($ref->getFileName()) . '/../../../Resources/metadata/jms',
-            'GoetasWebservices\SoapServices\Metadata' => dirname($refPl->getFileName()) . '/../../../Resources/metadata/jms-envelope',
         ]);
 
         $naming = new ShortNamingStrategy();
@@ -234,7 +241,6 @@ class ServerRequestResponsesTest extends TestCase
             <SOAP:Envelope
                 xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
                 xmlns:test="http://www.example.org/test/">
-               <soapenv:Header/>
                <soapenv:Body>
                   <test:getSimple>
                      <in>some string</in>
@@ -273,7 +279,6 @@ class ServerRequestResponsesTest extends TestCase
             <SOAP:Envelope
                 xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
                 xmlns:test="http://www.example.org/test/">
-               <soapenv:Header/>
                <soapenv:Body>
                   <test:getSimple>
                      <in>some string</in>
@@ -303,13 +308,58 @@ class ServerRequestResponsesTest extends TestCase
         $this->assertXmlStringEqualsXmlString(trim($responseString), (string) $response->getBody());
     }
 
+    public function testCustomHeader(): void
+    {
+        $requestString = '
+            <SOAP:Envelope
+                xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
+                xmlns:test="http://www.example.org/test/">
+               <soapenv:Body>
+                  <test:getSimple>
+                     <in>some string</in>
+                  </test:getSimple>
+               </soapenv:Body>
+            </SOAP:Envelope>';
+        $responseString = '
+            <SOAP:Envelope xmlns:SOAP="http://www.w3.org/2003/05/soap-envelope">
+              <SOAP:Header>
+                <ns-b3c6b39d:getSimple xmlns:ns-b3c6b39d="http://www.example.org/test/" SOAP:mustUnderstand="true">
+                  <in>abc</in>
+                </ns-b3c6b39d:getSimple>
+              </SOAP:Header>
+              <SOAP:Body>
+                <ns-b3c6b39d:getSimpleResponse  xmlns:ns-b3c6b39d="http://www.example.org/test/">
+                  <out><![CDATA[OK]]></out>
+                </ns-b3c6b39d:getSimpleResponse>
+              </SOAP:Body>
+            </SOAP:Envelope>';
+
+        $request = new ServerRequest(
+            'POST',
+            '/',
+            ['Content-Type' => 'application/soap+xml; action="http://www.example.org/test/getSimple"'],
+            trim($requestString)
+        );
+
+        $this->router->addRoute(new CallbackRoute(null, static function (HeadersOutgoing $responseHeaders) {
+            $o = new GetSimple();
+            $o->setIn('abc');
+            $responseHeaders->addHeader(new Header($o, ['mustUnderstand' => true]));
+
+            return 'OK';
+        }));
+
+        $response = $this->server->handle($request);
+
+        $this->assertXmlStringEqualsXmlString(trim($responseString), (string) $response->getBody());
+    }
+
     public function testSoapActionCompat(): void
     {
         $requestString = '
             <SOAP:Envelope
                 xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
                 xmlns:test="http://www.example.org/test/">
-               <soapenv:Header/>
                <soapenv:Body>
                   <test:getSimple>
                      <in>some string</in>
@@ -400,7 +450,6 @@ class ServerRequestResponsesTest extends TestCase
             <SOAP:Envelope
                 xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
                 xmlns:test="http://www.example.org/test/">
-               <soapenv:Header/>
                <soapenv:Body>
                   <test:getSimple>
                      <in>some string</in>
@@ -440,7 +489,6 @@ class ServerRequestResponsesTest extends TestCase
             <SOAP:Envelope
                 xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
                 xmlns:test="http://www.example.org/test/">
-               <soapenv:Header/>
                <soapenv:Body>
                   <test:getSimple>
                      <in>some string</in>
@@ -452,7 +500,7 @@ class ServerRequestResponsesTest extends TestCase
               <SOAP:Body>
                 <SOAP:Fault>
                   <faultcode>SOAP:Client</faultcode>
-                  <faultstring>The requested action http://www.example.org/test/getSimple is not supported using the 1.1 version protocol, but is supported using the http://www.example.org/test/getSimple protocol.</faultstring>
+                  <faultstring>The requested action http://www.example.org/test/getSimple is not supported using the 1.1 version protocol, but is supported using the 1.2 protocol.</faultstring>
                 </SOAP:Fault>
               </SOAP:Body>
             </SOAP:Envelope>';
@@ -504,7 +552,6 @@ class ServerRequestResponsesTest extends TestCase
             <SOAP:Envelope
                 xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
                 xmlns:test="http://www.example.org/test/">
-               <soapenv:Header/>
                <soapenv:Body>
                   <test:getSimple>
                      <in>some string</in>
@@ -550,7 +597,6 @@ class ServerRequestResponsesTest extends TestCase
             <SOAP:Envelope
                 xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
                 xmlns:test="http://www.example.org/test/">
-               <soapenv:Header/>
                <soapenv:Body>
                   <test:getSimple>
                      <in>some string</in>
@@ -648,7 +694,7 @@ class ServerRequestResponsesTest extends TestCase
             trim($requestString)
         );
 
-        $this->router->addRoute(new CallbackRoute(null, function (AuthHeader $authHeader, HeaderBag $bag) {
+        $this->router->addRoute(new CallbackRoute(null, function (AuthHeader $authHeader, HeadersIncoming $bag) {
             $this->assertEquals('username', $authHeader->getUser());
             $this->assertEquals('pwd', $authHeader->getPwd());
 
@@ -660,25 +706,128 @@ class ServerRequestResponsesTest extends TestCase
         $this->assertXmlStringEqualsXmlString($responseString, (string) $response->getBody());
     }
 
-    public function testHeaderNotUnderstood(): void
+    public function getHeadersToUnderstandPayload(): array
     {
-        $requestString = trim('
+        return [
+            [
+                'MustUnderstand headers: authHeader{http://www.example.org/test/} are not understood',
+                '
+                <soapenv:Envelope
+                     xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
+                     xmlns:test="http://www.example.org/test/">
+                   <soapenv:Header>
+                      <test:authHeader soapenv:mustUnderstand="true">
+                         <user>username</user>
+                         <pwd>pwd</pwd>
+                      </test:authHeader>
+                   </soapenv:Header>
+                   <soapenv:Body>
+                      <test:requestHeader>
+                         <in>input</in>
+                      </test:requestHeader>
+                   </soapenv:Body>
+                </soapenv:Envelope>',
+                function ($in, AuthHeader $authHeader, HeadersIncoming $bag) {
+                    $this->assertEquals('input', $in);
+
+                    $this->assertEquals('username', $authHeader->getUser());
+                    $this->assertEquals('pwd', $authHeader->getPwd());
+
+                    return 'A';
+                },
+            ],
+            [
+                'MustUnderstand headers: someOtherHeader{http://www.example.org/test/} are not understood',
+                '
         <soapenv:Envelope
              xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
              xmlns:test="http://www.example.org/test/">
            <soapenv:Header>
-              <test:authHeader soapenv:mustUnderstand="true">
-                 <user>username</user>
-                 <pwd>pwd</pwd>
-              </test:authHeader>
+              <test:someOtherHeader soapenv:mustUnderstand="true">
+                 foo
+              </test:someOtherHeader>
            </soapenv:Header>
            <soapenv:Body>
               <test:requestHeader>
                  <in>input</in>
               </test:requestHeader>
            </soapenv:Body>
-        </soapenv:Envelope>');
+        </soapenv:Envelope>',
+                function ($in, HeadersIncoming $bag) {
+                    $this->assertEquals('input', $in);
 
+                    return 'A';
+                },
+            ],
+        ];
+    }
+
+    public function getHeadersUnderstoodPayload(): array
+    {
+        return [
+            [
+                '
+                <soapenv:Envelope
+                     xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
+                     xmlns:test="http://www.example.org/test/">
+                   <soapenv:Header>
+                      <test:authHeader soapenv:mustUnderstand="true">
+                         <user>username</user>
+                         <pwd>pwd</pwd>
+                      </test:authHeader>
+                   </soapenv:Header>
+                   <soapenv:Body>
+                      <test:requestHeader>
+                         <in>input</in>
+                      </test:requestHeader>
+                   </soapenv:Body>
+                </soapenv:Envelope>',
+                function ($in, AuthHeader $authHeader, HeadersIncoming $bag) {
+                    $this->assertTrue($bag->isMustUnderstandHeader($authHeader));
+                    $bag->understoodHeader($authHeader);
+                    $this->assertEquals('input', $in);
+
+                    $this->assertEquals('username', $authHeader->getUser());
+                    $this->assertEquals('pwd', $authHeader->getPwd());
+
+                    return 'A';
+                },
+            ],
+            [
+                '
+        <soapenv:Envelope
+             xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
+             xmlns:test="http://www.example.org/test/">
+           <soapenv:Header>
+              <test:someOtherHeader soapenv:mustUnderstand="true">
+                 foo
+              </test:someOtherHeader>
+           </soapenv:Header>
+           <soapenv:Body>
+              <test:requestHeader>
+                 <in>input</in>
+              </test:requestHeader>
+           </soapenv:Body>
+        </soapenv:Envelope>',
+                function ($in, HeadersIncoming $bag) {
+                    $headers = $bag->getRawHeaders();
+                    $this->assertCount(1, $headers);
+                    $this->assertTrue($bag->isMustUnderstandHeader($headers[0]));
+                    $bag->understoodHeader($headers[0]);
+
+                    $this->assertEquals('input', $in);
+
+                    return 'A';
+                },
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider getHeadersToUnderstandPayload
+     */
+    public function testHeaderNotUnderstood(string $expectedMessage, string $requestString, callable $handler): void
+    {
         $responseString = trim('
         <SOAP:Envelope xmlns:SOAP="http://www.w3.org/2003/05/soap-envelope">
           <SOAP:Body>
@@ -687,7 +836,7 @@ class ServerRequestResponsesTest extends TestCase
                 <SOAP:Value>SOAP:MustUnderstand</SOAP:Value>
               </SOAP:Code>
               <SOAP:Reason>
-                <SOAP:Text>MustUnderstand headers:[Ex\AuthHeader] are not understood</SOAP:Text>
+                <SOAP:Text>' . $expectedMessage . '</SOAP:Text>
               </SOAP:Reason>
             </SOAP:Fault>
           </SOAP:Body>
@@ -700,39 +849,18 @@ class ServerRequestResponsesTest extends TestCase
             trim($requestString)
         );
 
-        $this->router->addRoute(new CallbackRoute(null, function ($in, AuthHeader $authHeader, HeaderBag $bag) {
-            $this->assertEquals('input', $in);
-
-            $this->assertEquals('username', $authHeader->getUser());
-            $this->assertEquals('pwd', $authHeader->getPwd());
-
-            return 'A';
-        }));
+        $this->router->addRoute(new CallbackRoute(null, $handler));
 
         $response = $this->server->handle($request);
 
         $this->assertXmlStringEqualsXmlString($responseString, (string) $response->getBody());
     }
 
-    public function testHeaderUnderstood(): void
+    /**
+     * @dataProvider getHeadersUnderstoodPayload
+     */
+    public function testHeaderUnderstood(string $requestString, callable $handler): void
     {
-        $requestString = trim('
-        <soapenv:Envelope
-             xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
-             xmlns:test="http://www.example.org/test/">
-           <soapenv:Header>
-              <test:authHeader soapenv:mustUnderstand="true">
-                 <user>username</user>
-                 <pwd>pwd</pwd>
-              </test:authHeader>
-           </soapenv:Header>
-           <soapenv:Body>
-              <test:requestHeader>
-                 <in>input</in>
-              </test:requestHeader>
-           </soapenv:Body>
-        </soapenv:Envelope>');
-
         $responseString = trim('
         <SOAP:Envelope xmlns:SOAP="http://www.w3.org/2003/05/soap-envelope">
           <SOAP:Body>
@@ -749,16 +877,7 @@ class ServerRequestResponsesTest extends TestCase
             trim($requestString)
         );
 
-        $this->router->addRoute(new CallbackRoute(null, function ($in, AuthHeader $authHeader, HeaderBag $bag) {
-            $this->assertTrue($bag->isMustUnderstandHeader($authHeader));
-            $bag->removeMustUnderstandHeader($authHeader);
-            $this->assertEquals('input', $in);
-
-            $this->assertEquals('username', $authHeader->getUser());
-            $this->assertEquals('pwd', $authHeader->getPwd());
-
-            return 'A';
-        }));
+        $this->router->addRoute(new CallbackRoute(null, $handler));
 
         $response = $this->server->handle($request);
 
@@ -774,7 +893,6 @@ class ServerRequestResponsesTest extends TestCase
         <soapenv:Envelope
             xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
             xmlns:test="http://www.example.org/test/">
-           <soapenv:Header/>
            <soapenv:Body>
               <test:getSimple>
                  <in>some string</in>
@@ -835,7 +953,7 @@ class ServerRequestResponsesTest extends TestCase
                 <SOAP:Value>SOAP:VersionMismatch</SOAP:Value>
               </SOAP:Code>
               <SOAP:Reason>
-                <SOAP:Text>The request content type text/html is not a valid SOAP (1.1 or 1.2) message</SOAP:Text>
+                <SOAP:Text>The request is not a valid SOAP (1.1 or 1.2) message</SOAP:Text>
               </SOAP:Reason>
           </SOAP:Fault>
           </SOAP:Body>
@@ -869,10 +987,22 @@ class ServerRequestResponsesTest extends TestCase
           </SOAP:Body>
         </SOAP:Envelope>');
 
+        $requestString = trim('
+        <soapenv:Envelope
+            xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
+            xmlns:test="http://www.example.org/test/">
+           <soapenv:Body>
+              <test:getSimple>
+                 <in>some string</in>
+              </test:getSimple>
+           </soapenv:Body>
+        </soapenv:Envelope>');
+
         $request = new ServerRequest(
             'POST',
             '/',
-            ['Content-Type' => 'application/soap+xml; action="123"']
+            ['Content-Type' => 'application/soap+xml; action="123"'],
+            $requestString
         );
 
         $response = $this->server->handle($request);
@@ -890,7 +1020,6 @@ class ServerRequestResponsesTest extends TestCase
         <soapenv:Envelope
             xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
             xmlns:test="http://www.example.org/test/">
-           <soapenv:Header/>
            <soapenv:Body>
               <test:getSimple>
                  <in>some string</in>
@@ -1030,7 +1159,6 @@ class ServerRequestResponsesTest extends TestCase
         <soapenv:Envelope
             xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope"
             xmlns:test="http://www.example.org/test/">
-           <soapenv:Header/>
            <soapenv:Body>
               <test:getMultiParam>
                  <in>some string</in>

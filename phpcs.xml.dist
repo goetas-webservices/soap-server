@@ -11,7 +11,7 @@
 
     <file>src/</file>
     <file>tests/</file>
-<!--    <file>soap-metadata/src</file>-->
+    <file>soap-metadata/src</file>
     <exclude-pattern>*/tmp/*</exclude-pattern>
 
     <rule ref="Doctrine">

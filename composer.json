@@ -14,7 +14,9 @@
     "psr/http-message": "^1.0",
     "psr/http-server-handler": "^1.0",
     "psr/http-factory": "^1.0",
-    "php-http/discovery": "^1.6"
+    "php-http/discovery": "^1.6",
+    "psr/http-factory-implementation": "^1.0",
+    "psr/http-message-implementation": "^1.0"
   },
   "require-dev": {
     "guzzlehttp/psr7": "^1.3",
@@ -22,7 +24,9 @@
     "goetas-webservices/xsd2php": "^0.4.0@dev",
     "goetas-webservices/wsdl2php": "^v0.4.4@dev",
     "laminas/laminas-diactoros": "^2.4",
-    "doctrine/coding-standard": "^8.1"
+    "doctrine/coding-standard": "^8.1",
+    "laminas/laminas-httphandlerrunner": "^1.3",
+    "goetas-webservices/xsd2php-runtime": "^0.2.13"
   },
   "suggest": {
     "php-http/discovery": "^1.6"
