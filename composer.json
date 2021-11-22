@@ -6,6 +6,7 @@
       "email": "goetas@gmail.com"
     }
   ],
+  "description": "Pure PHP implementation of SOAP 1.1 and 1.2 server",
   "require": {
     "php": "^7.2",
     "rybakit/arguments-resolver": "^0.5.0",
